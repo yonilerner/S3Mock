@@ -27,6 +27,8 @@ import com.adobe.testing.s3mock.dto.Owner;
 import com.adobe.testing.s3mock.util.AwsChunkDecodingInputStream;
 import com.adobe.testing.s3mock.util.HashUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -275,7 +277,7 @@ public class FileStore {
       inStream = dataStream;
     }
 
-    return inStream;
+    return dataStream;
   }
 
   /**
@@ -364,7 +366,7 @@ public class FileStore {
   /**
    * Sets tags for a given object.
    *
-   * @param bucketName Bucket where the file is stored in.
+   * @param bucketName Bucket where the file is stored in.wrawar
    * @param fileName name of the file to which tags have to be attached.
    * @param tags List of tag objects.
    *
@@ -433,23 +435,10 @@ public class FileStore {
       }
 
       outputStream = new FileOutputStream(targetFile);
-      int read;
-      final byte[] bytes = new byte[1024];
-
-      while ((read = inputStream.read(bytes)) != -1) {
-        outputStream.write(bytes, 0, read);
-      }
-
+      IOUtils.copy(inputStream, outputStream);
     } catch (final IOException e) {
       LOG.error("Wasn't able to store file on disk!", e);
     } finally {
-      if (inputStream != null) {
-        try {
-          inputStream.close();
-        } catch (final IOException e) {
-          LOG.error("InputStream can not be closed!", e);
-        }
-      }
       if (outputStream != null) {
         try {
           outputStream.close();
