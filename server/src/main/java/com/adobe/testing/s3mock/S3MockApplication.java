@@ -44,7 +44,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.PostConstruct;
@@ -256,7 +255,7 @@ public class S3MockApplication {
     @Value("${" + PROP_INITIAL_BUCKETS + ":}")
     private String initialBuckets;
 
-    private NetworkConnector httpConnector;
+    private ServerConnector httpConnector;
 
     /**
      * Create a ServletWebServerFactory bean reconfigured for an additional HTTP port.
@@ -267,17 +266,10 @@ public class S3MockApplication {
     ServletWebServerFactory webServerFactory() {
       final JettyServletWebServerFactory factory = new JettyServletWebServerFactory();
       factory.addServerCustomizers((JettyServerCustomizer) server -> {
-        final ServerConnector connector = new ServerConnector(server, -1, -1);
-        connector.setPort(httpPort);
+        httpConnector = new ServerConnector(server, -1, -1);
+        httpConnector.setPort(httpPort);
 
-        for (final Object connectionFactory : connector.getConnectionFactories()) {
-          if (connectionFactory instanceof ConnectionFactory) {
-            ((ConnectionFactory) connectionFactory)
-                .getHttpConfiguration().setSendServerVersion(false);
-          }
-        }
-
-        server.addConnector(connector);
+        server.addConnector(httpConnector);
       });
       return factory;
     }

@@ -99,12 +99,11 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 class FileStoreController {
-
   private static final String ANY = "*";
 
   private static final String RANGES_BYTES = "bytes";
 
-  private static final String UNSIGNED_PAYLOAD = "UNSIGNED-PAYLOAD";
+  private static final String STREAMING_PAYLOAD = "STREAMING-AWS4-HMAC-SHA256-PAYLOAD";
 
   private static final String HEADER_X_AMZ_CONTENT_SHA256 = "x-amz-content-sha256";
   private static final String HEADER_X_AMZ_META_PREFIX = "x-amz-meta-";
@@ -258,7 +257,7 @@ class FileStoreController {
     try {
       final List<BucketContents> contents = getBucketContents(bucketName, prefix);
 
-      Set<String> commonPrefixes = new HashSet<>();
+      final Set<String> commonPrefixes = new HashSet<>();
       if (null != delimiter) {
         collapseCommonPrefixes(prefix, delimiter, contents, commonPrefixes);
       }
@@ -287,13 +286,13 @@ class FileStoreController {
    */
   private void collapseCommonPrefixes(final String queryPrefix, final String delimiter, 
       final List<BucketContents> contents, final Set<String> commonPrefixes) {
-    String normalizedQueryPrefix = queryPrefix == null ? "" : queryPrefix;
+    final String normalizedQueryPrefix = queryPrefix == null ? "" : queryPrefix;
     
-    for (Iterator<BucketContents> i = contents.iterator(); i.hasNext();) {
-      BucketContents c = i.next();
-      String key = c.getKey();
+    for (final Iterator<BucketContents> i = contents.iterator(); i.hasNext();) {
+      final BucketContents c = i.next();
+      final String key = c.getKey();
       if (key.startsWith(normalizedQueryPrefix)) {
-        int delimiterIndex = key.indexOf(delimiter, normalizedQueryPrefix.length());
+        final int delimiterIndex = key.indexOf(delimiter, normalizedQueryPrefix.length());
         if (delimiterIndex > 0) {
           commonPrefixes.add(key.substring(0, delimiterIndex + delimiter.length()));
           i.remove();
@@ -336,7 +335,7 @@ class FileStoreController {
       final List<BucketContents> contents = getBucketContents(bucketName, prefix);
       List<BucketContents> filteredContents = getFilteredBucketContents(contents, startAfter);
 
-      Set<String> commonPrefixes = null;
+      final Set<String> commonPrefixes = null;
       if (null != delimiter) {
         collapseCommonPrefixes(prefix, delimiter, filteredContents, commonPrefixes);
       }
@@ -430,7 +429,7 @@ class FileStoreController {
           filename,
           request.getContentType(),
           inputStream,
-          isV4SigningEnabled(request),
+          isChunkedStreaming(request),
           userMetadata);
 
       final HttpHeaders responseHeaders = new HttpHeaders();
@@ -453,9 +452,9 @@ class FileStoreController {
         ));
   }
 
-  private boolean isV4SigningEnabled(final HttpServletRequest request) {
+  private boolean isChunkedStreaming(final HttpServletRequest request) {
     final String sha256Header = request.getHeader(HEADER_X_AMZ_CONTENT_SHA256);
-    return sha256Header != null && !sha256Header.equals(UNSIGNED_PAYLOAD);
+    return sha256Header != null && sha256Header.equals(STREAMING_PAYLOAD);
   }
 
   /**
@@ -494,7 +493,7 @@ class FileStoreController {
               filename,
               request.getContentType(),
               inputStream,
-              isV4SigningEnabled(request),
+              isChunkedStreaming(request),
               userMetadata,
               encryption,
               kmsKeyId);
@@ -964,7 +963,7 @@ class FileStoreController {
         uploadId,
         partNumber,
         request.getInputStream(),
-        isV4SigningEnabled(request));
+        isChunkedStreaming(request));
 
     final HttpHeaders responseHeaders = new HttpHeaders();
     final String quotedEtag = "\"" + etag + "\"";
@@ -1052,7 +1051,7 @@ class FileStoreController {
         copySource.getKey(),
         (int) copyRange.getStart(),
         (int) copyRange.getEnd(),
-        isV4SigningEnabled(request),
+        isChunkedStreaming(request),
         partNumber,
         destinationBucket,
         destinationFile,

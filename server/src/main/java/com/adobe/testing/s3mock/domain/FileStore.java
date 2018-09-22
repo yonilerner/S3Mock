@@ -203,7 +203,7 @@ public class FileStore {
    * @param fileName name of the File to be stored.
    * @param contentType The files Content Type.
    * @param dataStream The File as InputStream.
-   * @param useV4Signing If {@code true}, V4-style signing is enabled.
+   * @param isChunked Determines whether to use chunked streaming.
    *
    * @return {@link S3Object}.
    *
@@ -213,8 +213,8 @@ public class FileStore {
       final String fileName,
       final String contentType,
       final InputStream dataStream,
-      final boolean useV4Signing) throws IOException {
-    return putS3Object(bucketName, fileName, contentType, dataStream, useV4Signing,
+      final boolean isChunked) throws IOException {
+    return putS3Object(bucketName, fileName, contentType, dataStream, isChunked,
         Collections.emptyMap());
   }
 
@@ -225,7 +225,7 @@ public class FileStore {
    * @param fileName name of the File to be stored.
    * @param contentType The files Content Type.
    * @param dataStream The File as InputStream.
-   * @param useV4Signing If {@code true}, V4-style signing is enabled.
+   * @param isChunked Determines whether to use chunked streaming.
    * @param userMetadata User metadata to store for this object, will be available for the
    *     object with the key prefixed with "x-amz-meta-".
    *
@@ -237,7 +237,7 @@ public class FileStore {
       final String fileName,
       final String contentType,
       final InputStream dataStream,
-      final boolean useV4Signing,
+      final boolean isChunked,
       final Map<String, String> userMetadata) throws IOException {
     final S3Object s3Object = new S3Object();
     s3Object.setName(fileName);
@@ -249,7 +249,7 @@ public class FileStore {
     final File objectRootFolder = createObjectRootFolder(theBucket, s3Object.getName());
 
     final File dataFile =
-        inputStreamToFile(wrapStream(dataStream, useV4Signing),
+        inputStreamToFile(wrapStream(dataStream, isChunked),
             objectRootFolder.toPath().resolve(DATA_FILE));
     s3Object.setDataFile(dataFile);
     s3Object.setSize(Long.toString(dataFile.length()));
@@ -269,12 +269,9 @@ public class FileStore {
     return s3Object;
   }
 
-  private InputStream wrapStream(final InputStream dataStream, final boolean useV4Signing) {
-    final InputStream inStream;
-    if (useV4Signing) {
-      inStream = new AwsChunkDecodingInputStream(dataStream);
-    } else {
-      inStream = dataStream;
+  private InputStream wrapStream(final InputStream dataStream, final boolean isChunked) {
+    if (isChunked) {
+      return new AwsChunkDecodingInputStream(dataStream);
     }
 
     return dataStream;
@@ -287,7 +284,7 @@ public class FileStore {
    * @param fileName name of the File to be stored.
    * @param contentType The files Content Type.
    * @param dataStream The File as InputStream.
-   * @param useV4Signing If {@code true}, V4-style signing is enabled.
+   * @param isChunked Determines whether to use chunked streaming.
    * @param encryption The Encryption Type.
    * @param kmsKeyId The KMS encryption key id.
    *
@@ -299,9 +296,9 @@ public class FileStore {
       final String fileName,
       final String contentType,
       final InputStream dataStream,
-      final boolean useV4Signing,
+      final boolean isChunked,
       final String encryption, final String kmsKeyId) throws IOException {
-    return putS3ObjectWithKMSEncryption(bucketName, fileName, contentType, dataStream, useV4Signing,
+    return putS3ObjectWithKMSEncryption(bucketName, fileName, contentType, dataStream, isChunked,
         Collections.emptyMap(), encryption, kmsKeyId);
   }
 
@@ -312,7 +309,7 @@ public class FileStore {
    * @param fileName name of the File to be stored.
    * @param contentType The files Content Type.
    * @param dataStream The File as InputStream.
-   * @param useV4Signing If {@code true}, V4-style signing is enabled.
+   * @param isChunked Determines whether to use chunked streaming.
    * @param userMetadata User metadata to store for this object, will be available for the
    *     object with the key prefixed with "x-amz-meta-".
    * @param encryption The Encryption Type.
@@ -326,7 +323,7 @@ public class FileStore {
       final String fileName,
       final String contentType,
       final InputStream dataStream,
-      final boolean useV4Signing,
+      final boolean isChunked,
       final Map<String, String> userMetadata,
       final String encryption, final String kmsKeyId) throws IOException {
     final S3Object s3Object = new S3Object();
@@ -342,7 +339,7 @@ public class FileStore {
     final File objectRootFolder = createObjectRootFolder(theBucket, s3Object.getName());
 
     final File dataFile =
-        inputStreamToFile(wrapStream(dataStream, useV4Signing),
+        inputStreamToFile(wrapStream(dataStream, isChunked),
             objectRootFolder.toPath().resolve(DATA_FILE));
     s3Object.setDataFile(dataFile);
 
@@ -728,7 +725,7 @@ public class FileStore {
    * @param uploadId id of the upload
    * @param partNumber number of the part to store
    * @param inputStream file data to be stored
-   * @param useV4Signing If {@code true}, V4-style signing is enabled.
+   * @param isChunked Determines whether to use chunked streaming.
    *
    * @return the md5 hash of this part
    *
@@ -739,9 +736,9 @@ public class FileStore {
       final String uploadId,
       final String partNumber,
       final InputStream inputStream,
-      final boolean useV4Signing) throws IOException {
+      final boolean isChunked) throws IOException {
     try (final DigestInputStream digestingInputStream =
-        new DigestInputStream(wrapStream(inputStream, useV4Signing),
+        new DigestInputStream(wrapStream(inputStream, isChunked),
             MessageDigest.getInstance("MD5"))) {
       inputStreamToFile(digestingInputStream,
           Paths.get(rootFolder.getAbsolutePath(), bucketName, fileName, uploadId,
@@ -892,7 +889,7 @@ public class FileStore {
    * @param key Identifies the S3 Object.
    * @param from Byte range form.
    * @param to Byte range to.
-   * @param useV4Signing Determines whether to use v4 signing.
+   * @param isChunked Determines whether to use chunked streaming.
    * @param partNumber The part to copy.
    * @param destinationBucket The Bucket the target file (will) reside in.
    * @param destinationFilename The target file.
@@ -906,7 +903,7 @@ public class FileStore {
       final String key,
       final int from,
       final int to,
-      final boolean useV4Signing,
+      final boolean isChunked,
       final String partNumber,
       final String destinationBucket,
       final String destinationFilename,
@@ -917,7 +914,7 @@ public class FileStore {
     final File targetPartFile =
         ensurePartFile(partNumber, destinationBucket, destinationFilename, uploadId);
 
-    copyPart(bucket, key, from, to, useV4Signing, targetPartFile);
+    copyPart(bucket, key, from, to, isChunked, targetPartFile);
 
     return UUID.randomUUID().toString();
   }
@@ -926,13 +923,13 @@ public class FileStore {
       final String key,
       final int from,
       final int to,
-      final boolean useV4Signing,
+      final boolean isChunked,
       final File partFile) throws IOException {
     final int len = to - from + 1;
     final S3Object s3Object = resolveS3Object(bucket, key);
 
     try (final InputStream sourceStream =
-        wrapStream(FileUtils.openInputStream(s3Object.getDataFile()), useV4Signing);
+        wrapStream(FileUtils.openInputStream(s3Object.getDataFile()), isChunked);
         final OutputStream targetStream = new FileOutputStream(partFile)) {
       sourceStream.skip(from);
       IOUtils.copy(new BoundedInputStream(sourceStream, len), targetStream);

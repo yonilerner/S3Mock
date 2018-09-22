@@ -55,8 +55,8 @@ public abstract class S3MockStarter {
 
   protected Map<String, Object> defaultProps() {
     final Map<String, Object> args = new HashMap<>();
-    args.put(S3MockApplication.PROP_HTTPS_PORT, "0");
-    args.put(S3MockApplication.PROP_HTTP_PORT, "0");
+    args.put(S3MockApplication.PROP_HTTPS_PORT, S3MockApplication.DEFAULT_HTTPS_PORT);
+    args.put(S3MockApplication.PROP_HTTP_PORT, S3MockApplication.DEFAULT_HTTP_PORT);
     return args;
   }
 
@@ -127,9 +127,9 @@ public abstract class S3MockStarter {
   }
 
   protected EndpointConfiguration getEndpointCongiguration(final String region) {
-    boolean isSecureConnection = (boolean) properties.getOrDefault(
+    final boolean isSecureConnection = (boolean) properties.getOrDefault(
             S3MockApplication.PROP_SECURE_CONNECTION, true);
-    String serviceEndpoint = isSecureConnection ? "https://localhost:" + getPort()
+    final String serviceEndpoint = isSecureConnection ? "https://localhost:" + getPort()
             : "http://localhost:" + getHttpPort();
 
     return new EndpointConfiguration(serviceEndpoint, region);
