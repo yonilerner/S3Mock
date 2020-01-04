@@ -28,6 +28,7 @@ import java.io.IOException;
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequestWrapper;
 import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -88,7 +89,19 @@ class KmsValidationFilter extends OncePerRequestFilter {
 
         response.flushBuffer();
       } else {
-        filterChain.doFilter(request, response);
+        filterChain.doFilter(new HttpServletRequestWrapper(request) {
+        	@Override
+			public String getRequestURI() {
+				String host = request.getHeader("Host");
+				if (host != null) {
+					String[] hostParts = host.split("\\." + System.getenv("host"));
+					if (hostParts.length > 1) {
+						return request.getRequestURI() + hostParts[0];
+					}
+				}
+				return request.getRequestURI();
+			}
+		}, response);
       }
     } catch (final RuntimeException e) {
       LOG.error("Caught exception", e);
